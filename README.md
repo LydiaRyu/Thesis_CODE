@@ -20,7 +20,7 @@
 - lending_aug_n_2.R
 - lending_aug_n_4.R
 
-### Models
+### Code of models
 - lending_model_elasticnet.R
 - lending_model_scad.R
 - lending_model_rf.R
