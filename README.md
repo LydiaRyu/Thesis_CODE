@@ -19,3 +19,10 @@
 - lending_aug_n_1.R
 - lending_aug_n_2.R
 - lending_aug_n_4.R
+
+### Models
+- lending_model_elasticnet.R
+- lending_model_scad.R
+- lending_model_rf.R
+- lending_model_xbg_tuned.R
+- lending_model_lightgbm_tuned.R
