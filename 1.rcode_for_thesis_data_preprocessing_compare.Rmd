@@ -1,0 +1,1071 @@
+---
+title: "Data Preprocessing"
+author: "Jaeeun Ryu"
+date: "12/23/2021"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+memory.size(max = TRUE)    
+memory.size(max = FALSE)   
+memory.limit(size = NA)     
+memory.limit(size = 50000)  
+```
+
+```{r}
+#install.packages("doParallel")
+library(doParallel)
+
+# Check the number of cores
+
+detectCores()
+numCores <- detectCores() -1
+cl <- makeCluster(numCores)
+registerDoParallel(cl)
+
+```
+
+############################################################
+**0. Data back up **
+############################################################
+
+
+```{r}
+save(df_full_renew, file = 'D:/EUN/KU/Thesis/RCODE/workspace/df_full_renew.RData')
+
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/df_full_renew.RData')
+```
+
+
+
+############################################################
+**1. Data importing **
+############################################################
+
+
+```{r}
+setwd("D:/EUN/KU/Thesis/RCODE")
+
+df <- read.csv("Loan_status_2007-2020Q3.gzip" ,na.strings=c("NA", ""))
+
+
+head(df)
+dim(df)
+
+
+# colnames(df)
+
+```
+
+```{r}
+cha_df<- df %>% select_if(is.character)
+num_df <- df %>% select_if(is.numeric)
+
+# colnames(cha_df)
+# colnames(num_df)
+```
+
+############################################################
+**2. Exploratory Data Analysis **
+############################################################
+
+*Target variable*
+```{r}
+# Use 'Fully Paid' and 'Charged Off' variables as the target variable.
+# install.packages("dplyr")
+library(dplyr)
+
+df_LC <- df %>% filter(loan_status %in% c('Fully Paid' , 'Charged Off'))
+dim(df_LC)
+```
+
+
+*predictor variables*
+```{r}
+df_LC <- df_LC[ , !colnames(df_LC)%in%
+                      c("X", "policy_code",
+                        "id", "url", "pymnt_plan","zip_code","issue_d","addr_state", "earliest_cr_line",
+                        
+                        # 31 variables
+                        "collection_recovery_fee", "collections_12_mths_ex_med", "last_credit_pull_d",
+                        "last_pymnt_amnt",
+                        "last_pymnt_d", "mths_since_last_major_derog", "next_pymnt_d", "out_prncp", "out_prncp_inv",
+                        "recoveries", "total_pymnt", "total_pymnt_inv", "total_rec_int", "total_rec_late_fee",
+                        "total_rec_prncp", "hardship_flag",
+                        "hardship_type", "hardship_reason", "hardship_status", "deferral_term",
+                        "hardship_amount", "hardship_start_date", "hardship_end_date", "payment_plan_start_date",
+                        "hardship_length", "hardship_dpd", "hardship_loan_status",
+                        "orig_projected_additional_accrued_interest", "hardship_payoff_balance_amount",
+                        "hardship_last_payment_amount", "debt_settlement_flag" ,"last_fico_range_high","last_fico_range_low",
+                        "funded_amnt", "funded_amnt_inv"
+                        
+                        
+                       # "disbursement_method","debt_settlement_flag_date","settlement_status", "settlement_date",
+                       # "settlement_amount","settlement_percentage", "settlement_term"
+                        
+                        
+                        
+                        
+                         )]
+
+dim(df_LC)
+```
+
+
+
+```{r}
+df_LC <- df_LC %>% filter(dti > 0)
+dim(df_LC)
+```
+
+*rate to numeric*
+```{r}
+
+
+df_LC$int_rate <- as.numeric(gsub('[%]' , '', df_LC$int_rate))
+df_LC$revol_util <- as.numeric(gsub('[%]' , '', df_LC$revol_util))
+# df_modi$term <- as.numeric(gsub('[months]' , '', df_modi$term))
+
+```
+
+*average fico scores*
+
+```{r}
+
+
+df_LC$fico_avg <- (df_LC$fico_range_high + df_LC$fico_range_low) / 2
+df_LC <- df_LC %>% select(-one_of("fico_range_high","fico_range_low"))
+
+
+df_LC$sec_app_fico_avg <- (df_LC$sec_app_fico_range_low + df_LC$sec_app_fico_range_high) / 2
+df_LC <- df_LC %>% select(-one_of("sec_app_fico_range_low", "sec_app_fico_range_high"))
+
+dim(df_LC)
+```
+
+*Remove variables*
+```{r}
+# grade: use sub_grade (sub-variable of grade)
+# title/emp_title/emp_lenght : wide range
+
+vars_to_remove <- 
+  c("sub_grade", "title", "emp_title", "emp_length")
+
+df_LC <- df_LC %>% select(-one_of(vars_to_remove))
+
+```
+
+```{r}
+# Variables that has more than 90% of one value. 
+
+
+df_LC <- df_LC[ , !colnames(df_LC)%in%
+                      c("acc_now_delinq", "chargeoff_within_12_mths", "tax_liens","delinq_amnt")]
+
+df_LC <- df_LC[ , !colnames(df_LC)%in%
+                      c("num_tl_120dpd_2m ", "num_tl_30dpd ", "num_tl_90g_dpd_24m")]
+
+dim(df_LC)
+head(df_LC)
+```
+
+
+```{r}
+save(df_LC, file = 'D:/EUN/KU/Thesis/RCODE/workspace/df_LC.RData')
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/df_LC.RData')
+dim(df_LC)
+head(df_LC)
+```
+
+
+
+
+############################################################
+**Full dataset **
+############################################################
+
+
+```{r}
+df_full <- df_LC[, colSums(is.na(df_LC)) == 0]
+dim(df_full)
+head(df_full)
+```
+
+
+```{r}
+save(df_full, file = 'D:/EUN/KU/Thesis/RCODE/workspace/df_full.RData')
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/df_full.RData')
+
+dim(df_full)
+```
+
+
+```{r}
+
+df_full$loan_status <- as.numeric(ifelse(df_full$loan_status == 'Fully Paid' , 1, 0) )
+
+cat('Fully Paid: ', (nrow(df_full %>% filter(df_full$loan_status == 1)) / nrow(df_full)))
+cat('\nCharged Off: ', nrow(df_full %>% filter(df_full$loan_status == 0)) / nrow(df_full))
+
+```
+
+```{r}
+
+library(caret)
+
+# One-hot Encoding
+
+dmy <- dummyVars(~., data = df_full)
+df_full <- data.frame(predict(dmy, newdata = df_full))
+
+dim(df_full)
+head(df_full)
+```
+
+############################################################
+**missing variables**
+############################################################
+
+
+
+
+```{r}
+
+as.integer(nrow(df_LC) * 0.1)
+
+```
+
+
+```{r}
+
+# Remain the variables which contain the missing values under 0.01
+
+df_imp <- df_LC[ ,colSums(is.na(df_LC)) <= as.integer(nrow(df_LC) * 0.1)]
+
+dim(df_imp)
+```
+
+
+```{r}
+
+df_na <- df_imp[, colSums(is.na(df_imp)) !=0 ]
+as.data.frame(colSums(is.na(df_na)))
+
+na_col<- c(colnames(is.na(df_na)))
+
+dim(df_na)  # Impputated variables: 35
+
+```
+
+```{r}
+int <- df_na %>% select_if(is.integer)
+num <- df_na %>% select_if(is.double)
+
+```
+
+
+```{r}
+for (i in 1:ncol(df_imp)) {
+  if (class(df_imp[, i]) == 'integer'){
+    df_imp[, i][is.na(df_imp[,i])] <- as.integer(mean(df_imp[, i], na.rm = TRUE))  
+  }
+  else if (class(df_imp[, i]) == 'numeric'){
+    df_imp[, i][is.na(df_imp[,i])] <- round(mean(df_imp[, i], na.rm = TRUE),2)
+  }
+  
+}
+```
+
+
+```{r}
+dplyr::count(df_imp, dti, sort = TRUE)
+
+```
+
+
+```{r}
+dim(df_imp)
+```
+
+```{r}
+save(df_imp, file = 'D:/EUN/KU/Thesis/RCODE/workspace/df_imp.RData')
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/df_imp.RData')
+
+dim(df_imp)
+```
+
+```{r}
+
+df_imp$loan_status <- as.numeric(ifelse(df_imp$loan_status == 'Fully Paid' , 1, 0) )
+
+cat('Fully Paid: ', (nrow(df_imp %>% filter(df_imp$loan_status == 1)) / nrow(df_imp)))
+cat('\nCharged Off: ', nrow(df_imp %>% filter(df_imp$loan_status == 0)) / nrow(df_imp))
+
+
+```
+
+```{r}
+
+library(caret)
+
+# One-hot Encoding
+
+dmy <- dummyVars(~., data = df_imp)
+df_imp <- data.frame(predict(dmy, newdata = df_imp))
+
+dim(df_imp)
+head(df_imp)
+```
+
+############################################################
+**log scale **
+############################################################
+
+
+############################################################
+**3. Data Preprocessing **
+############################################################
+
+
+############################################################
+**outliers **
+############################################################
+
+```{r}
+# pub_rec
+
+pub_rec_modi <- df_full %>% filter(df_full$pub_rec <= 3)
+nrow(pub_rec_modi)/ nrow(df_full)
+
+df_full[(df_full$pub_rec > 3), 'pub_rec'] = 3
+
+dplyr::count(df_full, pub_rec, sort = TRUE)
+```
+
+
+
+```{r}
+# delinq_2yrs
+
+delinq_2yrs_modi <- df_full %>% filter(df_full$delinq_2yrs <= 4)
+nrow(delinq_2yrs_modi)/ nrow(df_full)
+
+df_full[(df_full$delinq_2yrs > 4), 'delinq_2yrs'] = 4
+
+dplyr::count(df_full, delinq_2yrs, sort = TRUE)
+```
+
+```{r}
+# dti
+
+dti_modi <- df_full %>% filter(df_full$dti <= 50)
+nrow(dti_modi)/ nrow(df_full)
+
+df_full <- df_full %>% filter(df_full$dti <= 50)
+
+dim(df_full)
+
+```
+
+```{r}
+# annual_inc
+
+annual_inc_modi <- df_full %>% filter(df_full$annual_inc <= 300000)
+nrow(annual_inc_modi)/ nrow(df_full)
+
+df_full <- df_full %>% filter(df_full$annual_inc <= 300000)
+
+dim(df_full)
+
+```
+
+```{r}
+# open_acc
+
+open_acc_modi <- df_full %>% filter(df_full$open_acc <= 40)
+nrow(open_acc_modi)/ nrow(df_full)
+
+df_full <- df_full %>% filter(df_full$open_acc <= 40)
+
+dim(df_full)
+
+```
+
+```{r}
+# total_acc
+
+total_acc_modi <- df_full %>% filter(df_full$total_acc <= 80)
+nrow(total_acc_modi)/ nrow(df_full)
+
+df_full <- df_full %>% filter(df_full$total_acc <= 80)
+
+dim(df_full)
+
+```
+
+```{r}
+# revol_bal
+
+revol_bal_modi <- df_full %>% filter(df_full$revol_bal <= 100000)
+nrow(revol_bal_modi)/ nrow(df_full)
+
+df_full <- df_full %>% filter(df_full$revol_bal <= 100000)
+
+dim(df_full)
+
+```
+
+```{r}
+colnames(df_imp)
+```
+
+*Graph*
+```{r}
+qqnorm(df_imp$revol_bal_log)
+qqline(df_imp$revol_bal_log)
+```
+
+
+
+```{r}
+df_imp %>%
+  ggplot(aes(revol_bal)) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity')
+```
+
+
+
+```{r}
+df_imp$int_rate_log <- log(df_imp$int_rate + 1)
+```
+
+```{r}
+df_imp %>%
+  ggplot(aes(num_actv_bc_tl_log)) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity')
+```
+
+*log_scaled variables*
+
+```{r}
+# 28 variables
+log_scale <- c("annual_inc", "avg_cur_bal", "dti", "int_rate", 
+    "mo_sin_rcnt_tl",  "mths_since_recent_bc", 
+    "num_actv_bc_tl", "num_il_tl", "revol_bal", "open_acc", "revol_util",
+    "total_acc", "tot_cur_bal", "total_rev_hi_lim", "acc_open_past_24mths", "bc_open_to_buy",
+    "mo_sin_rcnt_rev_tl_op", "num_actv_rev_tl", "num_bc_sats",  "num_op_rev_tl", 
+    "num_rev_accts", "num_rev_tl_bal_gt_0", "num_sats", "num_tl_op_past_12m", "tot_hi_cred_lim",
+    "total_bal_ex_mort", "total_bc_limit", "total_il_high_credit_limit")
+
+length(log_scale)
+```
+
+
+```{r}
+
+df_logs <- df_imp %>%
+    mutate(across(
+        .cols = contains(log_scale),
+        .fns = log1p)) %>% 
+    rename_with(.cols = contains(log_scale),
+                .fn = ~paste0(., '_log'))
+
+dim(df_logs)
+head(df_logs)
+
+```
+
+```{r}
+colSums(is.na(df_logs))
+```
+
+```{r}
+count(df_logs, dti_log)
+```
+
+```{r}
+save(df_logs, file = 'D:/EUN/KU/Thesis/RCODE/workspace/df_logs.RData')
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/df_logs.RData')
+dim(df_logs)
+```
+
+```{r}
+
+library(dplyr)
+
+df_logs$loan_status <- as.numeric(ifelse(df_logs$loan_status == 'Fully Paid' , 1, 0) )
+
+cat('Fully Paid: ', (nrow(df_logs %>% filter(df_logs$loan_status == 1)) / nrow(df_logs)))
+cat('\nCharged Off: ', nrow(df_logs %>% filter(df_logs$loan_status == 0)) / nrow(df_logs))
+
+```
+
+```{r}
+
+library(caret)
+
+# One-hot Encoding
+
+dmy <- dummyVars(~., data = df_logs)
+df_logs <- data.frame(predict(dmy, newdata = df_logs))
+
+dim(df_logs)
+head(df_logs)
+```
+
+
+############################################################
+**Coefficiency**
+############################################################
+
+```{r}
+num_vars <- 
+  df_logs %>% 
+  sapply(is.numeric) %>% 
+  which() %>% 
+  names()
+
+
+res <- cor(df_logs[, num_vars])
+round(res, 2)
+```
+
+```{r}
+
+cor_col_0.5 <- caret::findCorrelation(res, names = TRUE, cutoff = 0.5, exact = TRUE) #27
+cor_col_0.6 <- caret::findCorrelation(res, names = TRUE, cutoff = 0.6, exact = TRUE) #21
+cor_col_0.7 <- caret::findCorrelation(res, names = TRUE, cutoff = 0.7, exact = TRUE) #15
+cor_col_0.9 <- caret::findCorrelation(res, names = TRUE, cutoff = 0.9, exact = TRUE) #5
+
+```
+
+
+```{r}
+vars_to_remove <- cor_col_0.5
+cor_col_0.5 <- df_logs %>% select(-one_of(vars_to_remove))
+
+vars_to_remove <- cor_col_0.6
+cor_col_0.6 <- df_logs %>% select(-one_of(vars_to_remove))
+
+vars_to_remove <- cor_col_0.7
+cor_col_0.7 <- df_logs %>% select(-one_of(vars_to_remove))
+
+vars_to_remove <- cor_col_0.9
+cor_col_0.9 <- df_logs %>% select(-one_of(vars_to_remove))
+
+dim(cor_col_0.5)
+dim(cor_col_0.6)
+dim(cor_col_0.7)
+dim(cor_col_0.9)
+
+```
+
+```{r}
+head(cor_col_0.9)
+```
+
+```{r}
+save(cor_col_0.5, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.5.RData')
+save(cor_col_0.6, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.6.RData')
+save(cor_col_0.7, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.7.RData')
+save(cor_col_0.9, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.9.RData')
+
+load('D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.5.RData')
+load('D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.6.RData')
+load('D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.7.RData')
+load('D:/EUN/KU/Thesis/RCODE/workspace/cor_col_0.9.RData')
+
+
+head(cor_col_0.7)
+```
+
+```{r}
+
+cor_col_0.6$loan_status <- as.numeric(ifelse(cor_col_0.6$loan_status == 'Fully Paid' , 1, 0) )
+
+cat('Fully Paid: ', (nrow(cor_col_0.6 %>% filter(cor_col_0.6$loan_status == 1)) / nrow(cor_col_0.6)))
+cat('\nCharged Off: ', nrow(cor_col_0.6 %>% filter(cor_col_0.6$loan_status == 0)) / nrow(cor_col_0.6))
+
+```
+
+```{r}
+
+library(caret)
+
+# One-hot Encoding
+
+dmy <- dummyVars(~., data = cor_col_0.6)
+cor_col_0.6 <- data.frame(predict(dmy, newdata = cor_col_0.6))
+
+dim(cor_col_0.6)
+head(cor_col_0.6)
+```
+
+
+
+###################################################################################################################
+
+
+##### Full Dataset #####
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_full <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+Sensitivity <- c()
+Specificity<- c()
+Precision <- c()
+Recall <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(df_full$loan_status, SplitRatio = .70)
+  train = subset(df_full, sample == TRUE)
+  test  = subset(df_full, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_full[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_full[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  
+  F1[i] <- CM$byClass["F1"]
+  Sensitivity[i] <- CM$byClass["Sensitivity"]
+  Specificity[i] <- CM$byClass["Specificity"]
+  Precision[i] <- CM$byClass["Precision"]
+  Recall[i] <- CM$byClass["Recall"]
+  
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_full)
+full_scad_result <- cbind(Accuracy, F1, AUC, Sensitivity, Specificity, Precision, Recall)
+
+```
+
+```{r}
+save(opt_lambda_scad_full, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_full.RData')
+save(full_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/full_scad_result.RData')
+```
+
+```{r}
+round(colMeans(full_scad_result)*100, 2)
+round(apply(full_scad_result, 2, sd)/sqrt(20)*100 , 2)
+```
+
+##### Imputation Dataset #####
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_imp <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(df_imp$loan_status, SplitRatio = .70)
+  train = subset(df_imp, sample == TRUE)
+  test  = subset(df_imp, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_imp[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_imp[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_imp)
+imp_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+```{r}
+save(opt_lambda_scad_imp, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_imp.RData')
+save(imp_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/imp_scad_result.RData')
+```
+
+```{r}
+round(colMeans(imp_scad_result)*100, 4)
+round(apply(imp_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+##### log-scaled Dataset #####
+
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_logs <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(df_logs$loan_status, SplitRatio = .70)
+  train = subset(df_logs, sample == TRUE)
+  test  = subset(df_logs, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_logs[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_logs[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_logs)
+logs_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+```{r}
+save(opt_lambda_scad_logs, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_logs.RData')
+save(logs_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/logs_scad_result.RData')
+
+
+```
+
+```{r}
+round(colMeans(logs_scad_result)*100, 4)
+round(apply(logs_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+##### cor_col_0.5 Dataset #####
+
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_cor_0.5 <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(cor_col_0.5$loan_status, SplitRatio = .70)
+  train = subset(cor_col_0.5, sample == TRUE)
+  test  = subset(cor_col_0.5, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_cor_0.5[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_cor_0.5[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_cor_0.5)
+cor_0.5_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+```{r}
+save(opt_lambda_scad_cor_0.5, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_cor_0.5.RData')
+save(cor_0.5_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_0.5_scad_result.RData')
+```
+
+```{r}
+round(colMeans(cor_0.5_scad_result)*100, 4)
+round(apply(cor_0.5_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+##### cor_col_0.6 Dataset #####
+
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_cor_0.6 <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(cor_col_0.6$loan_status, SplitRatio = .70)
+  train = subset(cor_col_0.6, sample == TRUE)
+  test  = subset(cor_col_0.6, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_cor_0.6[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_cor_0.6[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_cor_0.6)
+cor_0.6_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+
+```{r}
+save(opt_lambda_scad_cor_0.6, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_cor_0.6.RData')
+save(cor_0.6_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_0.6_scad_result.RData')
+```
+
+```{r}
+round(colMeans(cor_0.6_scad_result)*100, 4)
+round(apply(cor_0.6_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+##### cor_col_0.7 Dataset #####
+
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_cor_0.7 <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(cor_col_0.7$loan_status, SplitRatio = .70)
+  train = subset(cor_col_0.7, sample == TRUE)
+  test  = subset(cor_col_0.7, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_cor_0.7[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_cor_0.7[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_cor_0.7)
+cor_0.7_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+```{r}
+save(opt_lambda_scad_cor_0.7, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_cor_0.7.RData')
+save(cor_0.7_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_0.7_scad_result.RData')
+```
+
+```{r}
+round(colMeans(cor_0.7_scad_result)*100, 4)
+round(apply(cor_0.7_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+##### cor_col_0.9 Dataset #####
+
+```{r}
+
+require(caTools)
+library(ROSE)
+library(ncvreg)
+library(pROC)
+
+opt_lambda_scad_cor_0.9 <- c()
+Accuracy <- c()
+F1 <-c()
+AUC <- c()
+
+  for (i in 1:20){
+  set.seed(i)
+  sample = sample.split(cor_col_0.9$loan_status, SplitRatio = .70)
+  train = subset(cor_col_0.9, sample == TRUE)
+  test  = subset(cor_col_0.9, sample == FALSE)
+
+  
+  X_train = train[ , !colnames(train) %in% 'loan_status']
+  y_train = train['loan_status']
+  X_test = test[ , !colnames(train) %in% 'loan_status'] 
+  y_test = test['loan_status']
+  
+  cv_scad <- cv.ncvreg(X_train, as.factor(y_train$loan_status), family = 'binomial'
+                     , penalty = 'SCAD', gamma = 3.7, returnX = TRUE ,nfolds = 5 )
+  
+  
+  opt_lambda_scad_cor_0.9[i] <- cv_scad$lambda.min
+  
+  
+  model_scad <- ncvreg(X_train, as.factor(y_train$loan_status), 
+                     family = 'binomial', penalty = 'SCAD', gamma = 3.7, returnX = TRUE 
+                     , lambda = opt_lambda_scad_cor_0.9[i])
+  
+  
+  pred_scad <- predict(model_scad, as.matrix(X_test), type = 'class')
+  
+  CM <- confusionMatrix(as.factor(pred_scad), as.factor(y_test$loan_status), mode = "everything", positive = "0")
+  roc_auc <- roc(as.factor(y_test$loan_status), as.numeric(pred_scad))
+  
+  Accuracy[i] <- CM$overall["Accuracy"]
+  F1[i] <- CM$byClass['F1']
+  AUC[i] <- roc_auc$auc
+  }
+
+head(opt_lambda_scad_cor_0.9)
+cor_0.9_scad_result <- cbind(Accuracy, F1, AUC)
+
+```
+
+```{r}
+save(opt_lambda_scad_cor_0.9, file = 'D:/EUN/KU/Thesis/RCODE/workspace/opt_lambda_scad_cor_0.9.RData')
+save(cor_0.9_scad_result, file = 'D:/EUN/KU/Thesis/RCODE/workspace/cor_0.9_scad_result.RData')
+```
+
+```{r}
+round(colMeans(cor_0.9_scad_result)*100, 4)
+round(apply(cor_0.9_scad_result, 2, sd)/sqrt(20)*100 , 4)
+```
+
+
